@@ -3,11 +3,14 @@ import re
 import requests
 import feedparser
 from datetime import datetime, timedelta, timezone
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
+
+# Für YouTube später (auskommentiert, bis du den Key hast):
+# from googleapiclient.discovery import build
+# from googleapiclient.errors import HttpError
 
 # ---------- EINSTELLUNGEN ----------
-YOUTUBE_API_KEY = os.environ['YOUTUBE_API_KEY']
+# Später, wenn der YouTube-Key da ist, hier eintragen:
+# YOUTUBE_API_KEY = os.environ.get('YOUTUBE_API_KEY', '')
 BARK_DEVICE_KEY = os.environ['BARK_DEVICE_KEY']
 
 CODE_PATTERN = re.compile(r'\b(SHOBI\d+|[A-Z]{3,6}\d{1,2}|LOVE\d+|DUFT\d+)\b', re.IGNORECASE)
@@ -38,39 +41,9 @@ def send_push(code, source, snippet):
     except Exception as e:
         print(f"Fehler beim Senden: {e}")
 
-def check_youtube(sent_codes):
-    print("Suche auf YouTube...")
-    youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
-    now = datetime.now(timezone.utc)
-    yesterday = (now - timedelta(hours=24)).isoformat() + 'Z'
-
-    try:
-        request = youtube.search().list(
-            q='Shobi Parfumery Coupon OR Gutschein',
-            part='snippet',
-            order='date',
-            maxResults=10,
-            type='video',
-            publishedAfter=yesterday
-        )
-        response = request.execute()
-
-        for item in response.get('items', []):
-            title = item['snippet']['title']
-            description = item['snippet']['description']
-            full_text = title + ' ' + description
-            matches = CODE_PATTERN.findall(full_text)
-            if any(w in full_text.lower() for w in CONTEXT_WORDS):
-                for code in matches:
-                    if code not in sent_codes:
-                        send_push(code, 'YouTube', full_text)
-                        sent_codes.add(code)
-    except HttpError as e:
-        print(f"YouTube-Fehler: {e}")
-
-def check_mydealz(sent_codes):
-    print("Suche auf mydealz.de...")
-    url = 'https://www.mydealz.de/feed/search/shobi'
+def check_rss_feed(name, url, sent_codes):
+    """Durchsucht einen RSS-Feed nach neuen Shobi-Codes."""
+    print(f"Suche auf {name}...")
     feed = feedparser.parse(url)
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=24)
@@ -84,15 +57,53 @@ def check_mydealz(sent_codes):
         if any(w in full_text.lower() for w in CONTEXT_WORDS):
             for code in matches:
                 if code not in sent_codes:
-                    send_push(code, 'mydealz', entry.title)
+                    send_push(code, name, entry.title)
                     sent_codes.add(code)
+
+# ----- YouTube (später aktivieren, sobald Key da ist) -----
+# def check_youtube(sent_codes):
+#     if not YOUTUBE_API_KEY:
+#         print("YouTube: Kein API-Key gesetzt – überspringe.")
+#         return
+#     print("Suche auf YouTube...")
+#     youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
+#     now = datetime.now(timezone.utc)
+#     yesterday = (now - timedelta(hours=24)).isoformat() + 'Z'
+#
+#     try:
+#         request = youtube.search().list(
+#             q='Shobi Parfumery Coupon OR Gutschein',
+#             part='snippet',
+#             order='date',
+#             maxResults=10,
+#             type='video',
+#             publishedAfter=yesterday
+#         )
+#         response = request.execute()
+#
+#         for item in response.get('items', []):
+#             title = item['snippet']['title']
+#             description = item['snippet']['description']
+#             full_text = title + ' ' + description
+#             matches = CODE_PATTERN.findall(full_text)
+#             if any(w in full_text.lower() for w in CONTEXT_WORDS):
+#                 for code in matches:
+#                     if code not in sent_codes:
+#                         send_push(code, 'YouTube', full_text)
+#                         sent_codes.add(code)
+#     except HttpError as e:
+#         print(f"YouTube-Fehler: {e}")
 
 if __name__ == '__main__':
     sent = load_sent_codes()
     initial_count = len(sent)
 
-    check_youtube(sent)
-    check_mydealz(sent)
+    # Aktive Quellen
+    check_rss_feed('mydealz', 'https://www.mydealz.de/feed/search/shobi', sent)
+    check_rss_feed('hotukdeals', 'https://www.hotukdeals.com/feed/search/shobi', sent)
+
+    # YouTube später hier entkommentieren:
+    # check_youtube(sent)
 
     if len(sent) > initial_count:
         save_sent_codes(sent)
