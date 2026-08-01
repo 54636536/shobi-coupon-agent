@@ -1,0 +1,35 @@
+name: Täglicher Shobi-Coupon-Check
+
+on:
+  schedule:
+    - cron: '0 7 * * *'   # Täglich um 07:00 UTC (09:00 MESZ)
+  workflow_dispatch:      # Ermöglicht manuellen Start
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code herunterladen
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Abhängigkeiten installieren
+        run: pip install -r requirements.txt
+
+      - name: Gutschein-Checker ausführen
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          BARK_DEVICE_KEY: ${{ secrets.BARK_DEVICE_KEY }}
+        run: python check.py
+
+      - name: Änderungen an sent_codes.txt speichern
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add sent_codes.txt
+          git diff --staged --quiet || git commit -m "Update sent codes"
+          git push
