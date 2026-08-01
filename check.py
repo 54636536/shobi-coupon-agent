@@ -101,6 +101,18 @@ if __name__ == '__main__':
     # Aktive Quellen
     check_rss_feed('mydealz', 'https://www.mydealz.de/feed/search/shobi', sent)
     check_rss_feed('hotukdeals', 'https://www.hotukdeals.com/feed/search/shobi', sent)
+    check_rss_feed('preisjaeger', 'https://www.preisjaeger.at/feed/search/shobi', sent)
+    check_rss_feed('dealbunny', 'https://www.dealbunny.de/feed/', sent)
+
+    # Google Alerts (täglich neue Ergebnisse)
+    check_rss_feed('Google Alert (DE)', 'https://www.google.com/alerts/feeds/12973894747528781488/6309501744543110273', sent)
+    check_rss_feed('Google Alert (EN)', 'https://www.google.com/alerts/feeds/12973894747528781488/3224074561633414365', sent)
+
+    if len(sent) > initial_count:
+        save_sent_codes(sent)
+        print(f"{len(sent) - initial_count} neue Codes gespeichert.")
+    else:
+        print("Keine neuen Codes gefunden.")
 
     # YouTube später hier entkommentieren:
     # check_youtube(sent)
